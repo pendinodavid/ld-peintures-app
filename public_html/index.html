@@ -1,0 +1,474 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Localisation Famille</title>
+
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+      integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="">
+
+<style>
+  :root{
+    --bg:#f2f5f4; --card:#ffffff; --ink:#15211d; --muted:#5d6b66;
+    --line:#dfe6e3; --accent:#178a6b; --accent-ink:#ffffff;
+    --warn:#c0491f; --shadow:0 1px 2px rgba(20,40,34,.06),0 8px 24px rgba(20,40,34,.08);
+    --radius:16px;
+  }
+  @media (prefers-color-scheme:dark){ :root:not([data-theme="light"]){
+    --bg:#0e1513; --card:#17201d; --ink:#e9efec; --muted:#9bada7;
+    --line:#26322e; --accent:#2fb389; --accent-ink:#07130f;
+    --warn:#ff7a52; --shadow:0 1px 2px rgba(0,0,0,.4),0 10px 30px rgba(0,0,0,.45);
+    color-scheme:dark;
+  }}
+  :root[data-theme="dark"]{
+    --bg:#0e1513; --card:#17201d; --ink:#e9efec; --muted:#9bada7;
+    --line:#26322e; --accent:#2fb389; --accent-ink:#07130f;
+    --warn:#ff7a52; --shadow:0 1px 2px rgba(0,0,0,.4),0 10px 30px rgba(0,0,0,.45);
+    color-scheme:dark;
+  }
+
+  *{box-sizing:border-box}
+  html,body{height:100%}
+  body{
+    margin:0; background:var(--bg); color:var(--ink);
+    font-family:"Segoe UI",system-ui,-apple-system,Roboto,Helvetica,Arial,sans-serif;
+    -webkit-font-smoothing:antialiased;
+  }
+  a{color:var(--accent)}
+  .wrap{max-width:720px; margin:0 auto; min-height:100%;
+    padding-left:max(16px,env(safe-area-inset-left,0)); padding-right:max(16px,env(safe-area-inset-right,0));}
+
+  /* ---------- Écran d'accueil / rejoindre ---------- */
+  .hero{padding-block:clamp(28px,8vw,56px) 20px; text-align:center}
+  .logo{width:60px;height:60px;border-radius:18px;background:var(--accent);color:var(--accent-ink);
+    display:grid;place-items:center;margin:0 auto 16px;box-shadow:var(--shadow)}
+  .logo svg{width:32px;height:32px}
+  h1{font-size:clamp(24px,6vw,30px);line-height:1.15;margin:.2em 0;text-wrap:balance}
+  .sub{color:var(--muted);max-width:30em;margin:0 auto 4px;line-height:1.5}
+
+  .card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);
+    box-shadow:var(--shadow);padding:20px}
+  form .field{display:block;margin-bottom:14px}
+  label{display:block;font-weight:600;font-size:14px;margin-bottom:6px}
+  .hint{font-weight:400;color:var(--muted);font-size:13px}
+  input[type=text]{width:100%;font-size:17px;padding:13px 14px;border:1px solid var(--line);
+    border-radius:12px;background:var(--bg);color:var(--ink)}
+  input[type=text]:focus{outline:2px solid var(--accent);outline-offset:1px;border-color:var(--accent)}
+  .btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;width:100%;
+    font-size:17px;font-weight:700;padding:14px 18px;border:0;border-radius:12px;cursor:pointer;
+    background:var(--accent);color:var(--accent-ink)}
+  .btn:active{transform:translateY(1px)}
+  .btn.secondary{background:transparent;color:var(--ink);border:1px solid var(--line)}
+  .btn.warn{background:var(--warn);color:#fff}
+  .consent{display:flex;gap:10px;align-items:flex-start;margin:14px 2px 0;color:var(--muted);
+    font-size:13px;line-height:1.5}
+  .consent svg{flex:0 0 auto;width:18px;height:18px;margin-top:1px;color:var(--accent)}
+  .err{color:var(--warn);font-size:14px;margin-top:10px;min-height:1.2em}
+
+  /* ---------- Écran carte ---------- */
+  header.bar{display:flex;align-items:center;gap:10px;padding:14px 0 10px}
+  header.bar .fam{font-weight:700}
+  header.bar .fam small{display:block;color:var(--muted);font-weight:500;font-size:12px}
+  header.bar .spacer{flex:1}
+  .iconbtn{background:var(--card);border:1px solid var(--line);color:var(--ink);
+    border-radius:11px;width:42px;height:42px;display:grid;place-items:center;cursor:pointer}
+  .iconbtn svg{width:20px;height:20px}
+
+  #map{height:48vh;min-height:280px;border-radius:var(--radius);border:1px solid var(--line);
+    box-shadow:var(--shadow);background:var(--line)}
+  .leaflet-container{font:inherit}
+
+  .share-toggle{display:flex;align-items:center;gap:14px;margin:14px 0;padding:14px 16px;
+    background:var(--card);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow)}
+  .share-toggle .t-txt{flex:1;min-width:0}
+  .share-toggle strong{display:block}
+  .share-toggle span{color:var(--muted);font-size:13px}
+  .switch{position:relative;width:54px;height:32px;flex:0 0 auto}
+  .switch input{position:absolute;opacity:0;width:100%;height:100%;margin:0;cursor:pointer}
+  .track{position:absolute;inset:0;background:var(--line);border-radius:999px;transition:background .18s}
+  .thumb{position:absolute;top:3px;left:3px;width:26px;height:26px;background:#fff;border-radius:50%;
+    box-shadow:0 1px 3px rgba(0,0,0,.3);transition:left .18s}
+  .switch input:checked + .track{background:var(--accent)}
+  .switch input:checked + .track + .thumb{left:25px}
+
+  h2.sec{font-size:14px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin:18px 2px 10px}
+  ul.people{list-style:none;margin:0 0 22px;padding:0;display:flex;flex-direction:column;gap:10px}
+  .person{display:flex;align-items:center;gap:12px;padding:12px 14px;background:var(--card);
+    border:1px solid var(--line);border-radius:14px}
+  .ava{flex:0 0 auto;width:42px;height:42px;border-radius:50%;display:grid;place-items:center;
+    color:#fff;font-weight:700;font-size:16px}
+  .person .meta{flex:1;min-width:0}
+  .person .meta b{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .person .meta small{color:var(--muted)}
+  .dot{display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--accent);margin-right:5px;vertical-align:1px}
+  .dot.old{background:#b7a53a}
+  .maplink{flex:0 0 auto;color:var(--accent);text-decoration:none;font-weight:600;font-size:14px;
+    border:1px solid var(--line);border-radius:10px;padding:8px 10px}
+  .empty{color:var(--muted);text-align:center;padding:18px;line-height:1.5}
+  .me-tag{font-size:11px;background:var(--accent);color:var(--accent-ink);border-radius:6px;padding:1px 6px;margin-left:6px;vertical-align:1px}
+
+  .pin{width:34px;height:34px;border-radius:50% 50% 50% 0;transform:rotate(-45deg);
+    display:grid;place-items:center;box-shadow:0 2px 6px rgba(0,0,0,.4);border:2px solid #fff}
+  .pin b{transform:rotate(45deg);color:#fff;font-weight:700;font-size:14px}
+
+  .foot{color:var(--muted);font-size:12px;text-align:center;padding:4px 0 26px;line-height:1.6}
+  .toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0));transform:translateX(-50%);
+    background:var(--ink);color:var(--bg);padding:11px 16px;border-radius:12px;font-size:14px;
+    box-shadow:var(--shadow);opacity:0;pointer-events:none;transition:opacity .2s;z-index:1200;max-width:90vw}
+  .toast.show{opacity:1}
+</style>
+</head>
+<body>
+
+<!-- ======================= ACCUEIL / REJOINDRE ======================= -->
+<main id="join" class="wrap">
+  <div class="hero">
+    <div class="logo" aria-hidden="true">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M12 21s-7-5.2-7-11a7 7 0 0 1 14 0c0 5.8-7 11-7 11z"/><circle cx="12" cy="10" r="2.6"/>
+      </svg>
+    </div>
+    <h1>Localisation Famille</h1>
+    <p class="sub">Partagez votre position avec les gens de confiance. Chacun choisit de partager, et peut arrêter quand il veut.</p>
+  </div>
+
+  <div class="card">
+    <form id="joinForm" autocomplete="on">
+      <div class="field">
+        <label for="name">Ton prénom</label>
+        <input id="name" type="text" inputmode="text" maxlength="30" placeholder="Ex. David" required>
+      </div>
+      <div class="field">
+        <label for="family">Code de la famille <span class="hint">— le même mot pour tout le monde</span></label>
+        <input id="family" type="text" inputmode="text" maxlength="40" placeholder="Ex. famille-dupont" required>
+      </div>
+      <button class="btn" type="submit">
+        <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+        Rejoindre la famille
+      </button>
+      <p class="err" id="joinErr" role="alert"></p>
+    </form>
+
+    <div class="consent">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+      <span>Choisissez un code que vous êtes seuls à connaître. Seules les personnes qui ont ce code voient les positions. Rien n'est partagé tant que vous n'appuyez pas sur « Je partage ma position ».</span>
+    </div>
+  </div>
+
+  <p class="foot">Ta position n'est envoyée que quand <b>toi</b> tu l'actives, et uniquement aux personnes qui ont le même code.</p>
+</main>
+
+<!-- ======================= CARTE ======================= -->
+<main id="app" class="wrap" hidden>
+  <header class="bar">
+    <div class="fam">
+      <span id="famName">—</span>
+      <small id="famCount">0 personne</small>
+    </div>
+    <div class="spacer"></div>
+    <button class="iconbtn" id="shareBtn" title="Inviter quelqu'un" aria-label="Inviter quelqu'un">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="M8.6 13.5l6.8 4M15.4 6.5l-6.8 4"/></svg>
+    </button>
+    <button class="iconbtn" id="leaveBtn" title="Quitter" aria-label="Quitter">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9"/></svg>
+    </button>
+  </header>
+
+  <div id="map"></div>
+
+  <div class="share-toggle">
+    <div class="t-txt">
+      <strong>Je partage ma position</strong>
+      <span id="shareState">Désactivé — personne ne te voit</span>
+    </div>
+    <label class="switch">
+      <input type="checkbox" id="shareSwitch" aria-label="Partager ma position">
+      <span class="track"></span><span class="thumb"></span>
+    </label>
+  </div>
+
+  <h2 class="sec">Dans la famille</h2>
+  <ul class="people" id="people"></ul>
+
+  <p class="foot">Les positions disparaissent toutes seules après 24 h sans mise à jour.</p>
+</main>
+
+<div class="toast" id="toast" role="status"></div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+        integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+<script>
+(function(){
+  "use strict";
+  var API = "api.php";
+  var LS = {
+    name:   "lf_name",
+    family: "lf_family",
+    id:     "lf_id",
+    share:  "lf_share"
+  };
+
+  // --- petits utilitaires de stockage (tolérants) ---
+  function get(k){ try{ return localStorage.getItem(k); }catch(e){ return null; } }
+  function set(k,v){ try{ localStorage.setItem(k,v); }catch(e){} }
+  function del(k){ try{ localStorage.removeItem(k); }catch(e){} }
+
+  function genId(){
+    var s = "";
+    for (var i=0;i<16;i++) s += "abcdefghijklmnopqrstuvwxyz0123456789"[Math.floor(Math.random()*36)];
+    return s;
+  }
+  function cleanFamily(v){ return (v||"").toLowerCase().trim().replace(/\s+/g,"-").replace(/[^a-z0-9\-]/g,"").slice(0,40); }
+
+  function colorFor(id){
+    var h=0; for(var i=0;i<id.length;i++){ h=(h*31+id.charCodeAt(i))>>>0; }
+    return "hsl("+(h%360)+" 62% 45%)";
+  }
+  function initials(name){ return (name||"?").trim().charAt(0).toUpperCase() || "?"; }
+
+  function haversine(a,b,c,d){ // km entre (a,b) et (c,d)
+    var R=6371, p=Math.PI/180;
+    var dLat=(c-a)*p, dLng=(d-b)*p;
+    var s=Math.sin(dLat/2)**2 + Math.cos(a*p)*Math.cos(c*p)*Math.sin(dLng/2)**2;
+    return 2*R*Math.asin(Math.min(1,Math.sqrt(s)));
+  }
+  function distTxt(km){
+    if (km<1) return Math.round(km*1000)+" m";
+    if (km<10) return km.toFixed(1).replace(".",",")+" km";
+    return Math.round(km)+" km";
+  }
+  function ago(sec){
+    if (sec<45) return "à l'instant";
+    var m=Math.round(sec/60);
+    if (m<60) return "il y a "+m+" min";
+    var h=Math.round(m/60);
+    if (h<24) return "il y a "+h+" h";
+    return "il y a "+Math.round(h/24)+" j";
+  }
+
+  var toastT;
+  function toast(msg){
+    var t=document.getElementById("toast");
+    t.textContent=msg; t.classList.add("show");
+    clearTimeout(toastT); toastT=setTimeout(function(){t.classList.remove("show");},2200);
+  }
+
+  // --- état ---
+  var me = { id:get(LS.id)||genId(), name:get(LS.name)||"", family:get(LS.family)||"" };
+  set(LS.id, me.id);
+  var sharing=false, watchId=null, lastSent=0, lastPos=null, pollT=null, map=null, markers={};
+
+  // code famille passé dans le lien : #famille-dupont
+  var hashFam = cleanFamily(decodeURIComponent((location.hash||"").replace(/^#/,"")));
+
+  // ---------- ACCUEIL ----------
+  var joinEl=document.getElementById("join"), appEl=document.getElementById("app");
+  var nameInp=document.getElementById("name"), famInp=document.getElementById("family");
+  nameInp.value=me.name;
+  famInp.value = hashFam || me.family;
+
+  document.getElementById("joinForm").addEventListener("submit", function(e){
+    e.preventDefault();
+    var err=document.getElementById("joinErr"); err.textContent="";
+    var name=nameInp.value.trim().slice(0,30);
+    var fam=cleanFamily(famInp.value);
+    if (name.length<1){ err.textContent="Entre ton prénom."; return; }
+    if (fam.length<3){ err.textContent="Le code de famille fait au moins 3 caractères (lettres, chiffres, tirets)."; return; }
+    me.name=name; me.family=fam;
+    set(LS.name,name); set(LS.family,fam);
+    enterApp();
+  });
+
+  // ---------- CARTE ----------
+  function enterApp(){
+    joinEl.hidden=true; appEl.hidden=false;
+    try{ location.hash = me.family; }catch(e){}
+    document.getElementById("famName").textContent = me.family;
+
+    if (!map){
+      map = L.map("map",{zoomControl:true, attributionControl:true}).setView([46.6,2.4],5);
+      L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",{
+        maxZoom:19, attribution:"© OpenStreetMap"
+      }).addTo(map);
+    }
+    // reprendre le partage si c'était actif
+    if (get(LS.share)==="1"){ document.getElementById("shareSwitch").checked=true; startShare(); }
+    refresh();
+    if (pollT) clearInterval(pollT);
+    pollT=setInterval(refresh, 8000);
+  }
+
+  // Partage de MA position
+  document.getElementById("shareSwitch").addEventListener("change", function(){
+    if (this.checked) startShare(); else stopShare();
+  });
+
+  function setShareUi(on){
+    document.getElementById("shareState").textContent =
+      on ? "Activé — ta famille te voit sur la carte" : "Désactivé — personne ne te voit";
+  }
+
+  function startShare(){
+    if (!("geolocation" in navigator)){
+      toast("Ton téléphone ne donne pas accès au GPS ici.");
+      document.getElementById("shareSwitch").checked=false; return;
+    }
+    sharing=true; set(LS.share,"1"); setShareUi(true);
+    toast("Position activée");
+    watchId = navigator.geolocation.watchPosition(onPos, onGeoErr, {
+      enableHighAccuracy:true, maximumAge:10000, timeout:20000
+    });
+  }
+
+  function stopShare(){
+    sharing=false; set(LS.share,"0"); setShareUi(false);
+    if (watchId!=null){ navigator.geolocation.clearWatch(watchId); watchId=null; }
+    sendLeave();
+    toast("Tu ne partages plus ta position");
+    refresh();
+  }
+
+  function onGeoErr(e){
+    document.getElementById("shareSwitch").checked=false;
+    sharing=false; set(LS.share,"0"); setShareUi(false);
+    if (e && e.code===1) toast("Autorisation GPS refusée. Autorise la localisation pour ce site.");
+    else toast("Position indisponible pour le moment.");
+  }
+
+  function onPos(p){
+    lastPos={ lat:p.coords.latitude, lng:p.coords.longitude, acc:p.coords.accuracy };
+    var now=Date.now();
+    // On envoie au plus une fois toutes les 7 s.
+    if (now-lastSent > 7000){ sendUpdate(); }
+    // recentrer la première fois
+    if (!onPos._centered){ onPos._centered=true; map.setView([lastPos.lat,lastPos.lng], 15); }
+  }
+
+  function sendUpdate(){
+    if (!lastPos) return;
+    lastSent=Date.now();
+    var body=new URLSearchParams({
+      action:"update", family:me.family, id:me.id, name:me.name,
+      lat:lastPos.lat, lng:lastPos.lng, acc:(lastPos.acc||"")
+    });
+    fetch(API+"?action=update",{method:"POST",body:body})
+      .then(function(r){return r.json();})
+      .then(function(j){ if(!j.ok) toast(j.error||"Erreur serveur"); refresh(); })
+      .catch(function(){ toast("Pas de connexion au serveur."); });
+  }
+
+  function sendLeave(){
+    var body=new URLSearchParams({action:"leave",family:me.family,id:me.id});
+    if (navigator.sendBeacon){
+      navigator.sendBeacon(API+"?action=leave", body);
+    } else {
+      fetch(API+"?action=leave",{method:"POST",body:body,keepalive:true}).catch(function(){});
+    }
+  }
+
+  // Récupère et affiche tout le monde
+  function refresh(){
+    fetch(API+"?action=list&family="+encodeURIComponent(me.family))
+      .then(function(r){return r.json();})
+      .then(function(j){ if(j.ok) render(j.members||[], j.now); })
+      .catch(function(){});
+  }
+
+  function render(members, serverNow){
+    var ul=document.getElementById("people");
+    ul.innerHTML="";
+    document.getElementById("famCount").textContent =
+      members.length + (members.length>1?" personnes":" personne");
+
+    // garder une référence à ma position si je partage (pour calculer les distances)
+    var mine=null;
+    members.forEach(function(m){ if(m.id===me.id) mine=m; });
+    var base = mine || lastPos;
+
+    // nettoyer marqueurs disparus
+    Object.keys(markers).forEach(function(id){
+      if (!members.some(function(m){return m.id===id;})){ map.removeLayer(markers[id]); delete markers[id]; }
+    });
+
+    if (members.length===0){
+      var li=document.createElement("li");
+      li.innerHTML='<div class="empty">Personne ne partage sa position pour l\'instant.<br>Active ton partage ci-dessus, ou invite quelqu\'un avec le bouton <b>partager</b> en haut.</div>';
+      li.className=""; ul.appendChild(li);
+      return;
+    }
+
+    // trier : moi d'abord, puis les plus récents
+    members.sort(function(a,b){
+      if (a.id===me.id) return -1; if (b.id===me.id) return 1;
+      return (b.t||0)-(a.t||0);
+    });
+
+    var bounds=[];
+    members.forEach(function(m){
+      var isMe=(m.id===me.id);
+      var col=isMe?getCss("--accent"):colorFor(m.id);
+      var ageSec=(serverNow||Math.floor(Date.now()/1000))-(m.t||0);
+
+      // marqueur carte
+      var html='<div class="pin" style="background:'+col+'"><b>'+initials(m.name)+'</b></div>';
+      var icon=L.divIcon({className:"", html:html, iconSize:[34,34], iconAnchor:[17,34]});
+      if (markers[m.id]){ markers[m.id].setLatLng([m.lat,m.lng]).setIcon(icon); }
+      else { markers[m.id]=L.marker([m.lat,m.lng],{icon:icon}).addTo(map); }
+      markers[m.id].bindPopup("<b>"+escapeHtml(m.name)+"</b><br>"+ago(ageSec));
+      bounds.push([m.lat,m.lng]);
+
+      // ligne de liste
+      var li=document.createElement("li"); li.className="person";
+      var d="";
+      if (base && !isMe){ d=" · "+distTxt(haversine(base.lat,base.lng,m.lat,m.lng))+" de toi"; }
+      var oldClass = ageSec>900 ? " old" : "";
+      li.innerHTML =
+        '<div class="ava" style="background:'+col+'">'+initials(m.name)+'</div>'+
+        '<div class="meta"><b>'+escapeHtml(m.name)+(isMe?'<span class="me-tag">toi</span>':'')+'</b>'+
+        '<small><span class="dot'+oldClass+'"></span>'+ago(ageSec)+d+'</small></div>'+
+        '<a class="maplink" target="_blank" rel="noopener" href="https://www.google.com/maps?q='+m.lat+','+m.lng+'">Itinéraire</a>';
+      li.querySelector(".meta").addEventListener("click", function(){
+        map.setView([m.lat,m.lng],16); markers[m.id].openPopup();
+        document.getElementById("map").scrollIntoView({behavior:"smooth",block:"center"});
+      });
+      ul.appendChild(li);
+    });
+
+    if (bounds.length && !render._fitted){
+      try{ map.fitBounds(bounds,{padding:[40,40],maxZoom:15}); render._fitted=true; }catch(e){}
+    }
+  }
+
+  function getCss(v){ return getComputedStyle(document.documentElement).getPropertyValue(v).trim()||"#178a6b"; }
+  function escapeHtml(s){ return (s||"").replace(/[&<>"]/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c];}); }
+
+  // Inviter : copier le lien avec le code de famille
+  document.getElementById("shareBtn").addEventListener("click", function(){
+    var url=location.origin+location.pathname+"#"+me.family;
+    var txt="Rejoins notre localisation familiale : "+url+" (code : "+me.family+")";
+    if (navigator.share){
+      navigator.share({title:"Localisation Famille", text:txt, url:url}).catch(function(){});
+    } else if (navigator.clipboard){
+      navigator.clipboard.writeText(url).then(function(){toast("Lien copié ✓");},function(){prompt("Copie ce lien :",url);});
+    } else { prompt("Copie ce lien :",url); }
+  });
+
+  // Quitter
+  document.getElementById("leaveBtn").addEventListener("click", function(){
+    if (sharing) stopShare();
+    del(LS.share);
+    appEl.hidden=true; joinEl.hidden=false;
+    try{ location.hash=""; }catch(e){}
+  });
+
+  // En fermant l'onglet, on retire la position si on partageait
+  window.addEventListener("pagehide", function(){ if(sharing) sendLeave(); });
+
+  // ---------- démarrage ----------
+  if ((hashFam || me.family) && me.name){ enterApp(); }
+  else if (hashFam){ famInp.value=hashFam; nameInp.focus(); }
+})();
+</script>
+</body>
+</html>

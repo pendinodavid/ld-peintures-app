@@ -1,0 +1,6 @@
+# Interdit tout accès web au dossier des données.
+Require all denied
+# (Apache 2.2 de secours)
+<IfModule !mod_authz_core.c>
+  Deny from all
+</IfModule>
